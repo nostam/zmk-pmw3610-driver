@@ -649,19 +649,25 @@ static const struct sensor_driver_api pmw3610_driver_api = {
     .attr_set = pmw3610_attr_set,
 };
 
-// #if IS_ENABLED(CONFIG_PM_DEVICE)
-// static int pmw3610_pm_action(const struct device *dev, enum pm_device_action action) {
-//     switch (action) {
-//     case PM_DEVICE_ACTION_SUSPEND:
-//         return pmw3610_set_interrupt(dev, false);
-//     case PM_DEVICE_ACTION_RESUME:
-//         return pmw3610_set_interrupt(dev, true);
-//     default:
-//         return -ENOTSUP;
-//     }
-// }
-// #endif // IS_ENABLED(CONFIG_PM_DEVICE)
-// PM_DEVICE_DT_INST_DEFINE(n, pmw3610_pm_action);
+#if IS_ENABLED(CONFIG_PM_DEVICE)
+static int pmw3610_pm_action(const struct device *dev, enum pm_device_action action) {
+    struct pixart_data *data = dev->data;
+
+    switch (action) {
+    case PM_DEVICE_ACTION_SUSPEND:
+        k_work_cancel_delayable(&data->init_work);
+        pmw3610_set_interrupt(dev, false);
+        data->ready = false;
+        return pmw3610_write(dev, PMW3610_REG_SHUTDOWN, PMW3610_SHUTDOWN_CMD);
+    case PM_DEVICE_ACTION_RESUME:
+        data->async_init_step = ASYNC_INIT_STEP_POWER_UP;
+        k_work_schedule(&data->init_work, K_MSEC(async_init_delay[data->async_init_step]));
+        return 0;
+    default:
+        return -ENOTSUP;
+    }
+}
+#endif // IS_ENABLED(CONFIG_PM_DEVICE)
 
 #define PMW3610_SPI_MODE (SPI_OP_MODE_MASTER | SPI_WORD_SET(8) | SPI_MODE_CPOL | \
                         SPI_MODE_CPHA | SPI_TRANSFER_MSB)
@@ -681,8 +687,9 @@ static const struct sensor_driver_api pmw3610_driver_api = {
         .force_awake = DT_PROP(DT_DRV_INST(n), force_awake),                                       \
         .force_awake_4ms_mode = DT_PROP(DT_DRV_INST(n), force_awake_4ms_mode),                     \
     };                                                                                             \
-    DEVICE_DT_INST_DEFINE(n, pmw3610_init, NULL, &data##n, &config##n, POST_KERNEL,                \
-                          CONFIG_INPUT_PMW3610_INIT_PRIORITY, &pmw3610_driver_api);
+    PM_DEVICE_DT_INST_DEFINE(n, pmw3610_pm_action);                                                \
+    DEVICE_DT_INST_DEFINE(n, pmw3610_init, PM_DEVICE_DT_INST_GET(n), &data##n, &config##n,         \
+                          POST_KERNEL, CONFIG_INPUT_PMW3610_INIT_PRIORITY, &pmw3610_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(PMW3610_DEFINE)
 

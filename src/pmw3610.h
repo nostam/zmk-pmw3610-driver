@@ -65,6 +65,7 @@ extern "C" {
 /* Power-up register commands */
 #define PMW3610_POWERUP_CMD_RESET 0x5A
 #define PMW3610_POWERUP_CMD_WAKEUP 0x96
+#define PMW3610_SHUTDOWN_CMD 0xB6
 
 /* spi clock enable/disable commands */
 #define PMW3610_SPI_CLOCK_CMD_ENABLE 0xBA
