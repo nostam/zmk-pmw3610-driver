@@ -651,15 +651,20 @@ static const struct sensor_driver_api pmw3610_driver_api = {
 
 #if IS_ENABLED(CONFIG_PM_DEVICE)
 static int pmw3610_pm_action(const struct device *dev, enum pm_device_action action) {
+    const struct pixart_config *config = dev->config;
     struct pixart_data *data = dev->data;
+    int err;
 
     switch (action) {
     case PM_DEVICE_ACTION_SUSPEND:
         k_work_cancel_delayable(&data->init_work);
         pmw3610_set_interrupt(dev, false);
         data->ready = false;
-        return pmw3610_write(dev, PMW3610_REG_SHUTDOWN, PMW3610_SHUTDOWN_CMD);
+        err = pmw3610_write(dev, PMW3610_REG_SHUTDOWN, PMW3610_SHUTDOWN_CMD);
+        gpio_pin_configure(config->irq_gpio.port, config->irq_gpio.pin, GPIO_INPUT);
+        return err;
     case PM_DEVICE_ACTION_RESUME:
+        gpio_pin_configure_dt(&config->irq_gpio, GPIO_INPUT);
         data->async_init_step = ASYNC_INIT_STEP_POWER_UP;
         k_work_schedule(&data->init_work, K_MSEC(async_init_delay[data->async_init_step]));
         return 0;
