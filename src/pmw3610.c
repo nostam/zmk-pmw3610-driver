@@ -304,7 +304,12 @@ static int pmw3610_set_interrupt(const struct device *dev, const bool en) {
 }
 
 static int pmw3610_async_init_power_up(const struct device *dev) {
-	int ret = pmw3610_write_reg(dev, PMW3610_REG_POWER_UP_RESET, PMW3610_POWERUP_CMD_RESET);
+	int ret = pmw3610_write_reg(dev, PMW3610_REG_POWER_UP_RESET, PMW3610_POWERUP_CMD_WAKEUP);
+    if (ret < 0) {
+        return ret;
+    }
+    k_sleep(K_MSEC(50));
+	ret = pmw3610_write_reg(dev, PMW3610_REG_POWER_UP_RESET, PMW3610_POWERUP_CMD_RESET);
     if (ret < 0) {
         return ret;
     }
@@ -658,9 +663,10 @@ static int pmw3610_pm_action(const struct device *dev, enum pm_device_action act
     switch (action) {
     case PM_DEVICE_ACTION_SUSPEND:
         k_work_cancel_delayable(&data->init_work);
+        k_work_cancel(&data->trigger_work);
         pmw3610_set_interrupt(dev, false);
         data->ready = false;
-        err = pmw3610_write(dev, PMW3610_REG_SHUTDOWN, PMW3610_SHUTDOWN_CMD);
+        err = pmw3610_write_reg(dev, PMW3610_REG_SHUTDOWN, PMW3610_SHUTDOWN_CMD);
         gpio_pin_configure(config->irq_gpio.port, config->irq_gpio.pin, GPIO_INPUT);
         return err;
     case PM_DEVICE_ACTION_RESUME:
