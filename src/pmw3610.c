@@ -255,7 +255,7 @@ static int pmw3610_set_performance(const struct device *dev, bool enabled) {
     const struct pixart_config *config = dev->config;
     int err = 0;
 
-    if (config->force_awake) {
+    if (config->force_awake || config->force_awake_4ms_mode) {
         uint8_t value;
         err = pmw3610_read_reg(dev, PMW3610_REG_PERFORMANCE, &value);
         if (err) {
@@ -276,7 +276,7 @@ static int pmw3610_set_performance(const struct device *dev, bool enabled) {
             perf = value & 0x0F; // RUN RATE @ 8ms
         }
 
-        if (enabled) {
+        if (enabled && config->force_awake) {
             perf |= 0xF0; // set bit[3..0] to 0xF (force awake)
         }
         if (perf != value) {
